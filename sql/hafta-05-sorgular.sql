@@ -9,13 +9,13 @@
 -- Bu sorgu, RAG asistanının en çok hangi e-ticaret konusunda uydurma/hata yapma riski taşıdığını gösterir.
 SELECT 
     q.topic,
-    COUNT(r.id) AS toplam_yanit,
-    COUNT(CASE WHEN r.is_off_policy = TRUE THEN 1 END) AS politika_disi_sayi,
-    ROUND(COUNT(CASE WHEN r.is_off_policy = TRUE THEN 1 END) * 100.0 / COUNT(r.id), 2) AS politika_disi_yuzde
+    COUNT(r.id) AS total_responses,
+    COUNT(CASE WHEN r.is_off_policy = TRUE THEN 1 END) AS off_policy_count,
+    ROUND(COUNT(CASE WHEN r.is_off_policy = TRUE THEN 1 END) * 100.0 / COUNT(r.id), 2) AS off_policy_percentage
 FROM questions q
 JOIN responses r ON q.id = r.question_id
 GROUP BY q.topic
-ORDER BY politika_disi_yuzde DESC;
+ORDER BY off_policy_percentage DESC;
 
 
 -- VERİ KALİTESİ VE TUTARLILIK KONTROLÜ (COUNT FARK)
@@ -23,7 +23,7 @@ ORDER BY politika_disi_yuzde DESC;
 -- politika dışı olarak işaretlenmemiş (is_off_policy = false) tutarsız yanıtların sayısı nedir?
 -- Bu sorgu, kaynak dokümanı olmadan verilen iddialı yanıtların güvenlik ekibi tarafından gözden kaçırılma riskini ölçer.
 SELECT 
-    COUNT(*) AS kaynak_yok_ama_off_policy_degil_sayisi
+    COUNT(*) AS no_source_not_off_policy_count
 FROM responses
 WHERE source_found = FALSE AND is_off_policy = FALSE;
 
@@ -33,7 +33,7 @@ WHERE source_found = FALSE AND is_off_policy = FALSE;
 -- Bu sorgu, güvenlik ve denetim ekibinin acil müdahale etmesi gereken yüksek riskli kategori alanlarını filtreler.
 SELECT 
     q.topic,
-    ROUND(COUNT(CASE WHEN r.is_off_policy = TRUE THEN 1 END) * 100.0 / COUNT(r.id), 2) AS politika_disi_yuzde
+    ROUND(COUNT(CASE WHEN r.is_off_policy = TRUE THEN 1 END) * 100.0 / COUNT(r.id), 2) AS off_policy_percentage
 FROM questions q
 JOIN responses r ON q.id = r.question_id
 GROUP BY q.topic
@@ -41,22 +41,22 @@ HAVING (COUNT(CASE WHEN r.is_off_policy = TRUE THEN 1 END) * 100.0 / COUNT(r.id)
 
 
 -- ŞİKÂYET TÜRLERİNİ KATEGORİZE ETME (CASE WHEN)
--- Soru 4: Müşteri şikâyetleri 'Operasyonel Risk (Kargo/İade)' ve 'Bilgi Güvenliği Riski (Hatalı Bilgi/Fatura)' 
+-- Soru 4: Müşteri şikâyetleri 'Operational Risk' ve 'Information Security Risk' 
 -- olarak gruplandığında dağılım nasıl şekillenmektedir?
 -- Bu sorgu, gelen şikâyetlerin operasyonel mi yoksa asistan kaynaklı bilgi hatası mı olduğunu sınıflandırır.
 SELECT 
     CASE 
-        WHEN complaint_type IN ('shipping_delay', 'product_damaged') THEN 'Operasyonel Risk'
-        WHEN complaint_type IN ('bad_information', 'wrong_billing') THEN 'Bilgi Güvenliği Riski'
-        ELSE 'Diğer'
-    END AS risk_grubu,
-    COUNT(*) AS sikayet_sayisi
+        WHEN complaint_type IN ('shipping_delay', 'product_damaged') THEN 'Operational Risk'
+        WHEN complaint_type IN ('bad_information', 'wrong_billing') THEN 'Information Security Risk'
+        ELSE 'Other'
+    END AS risk_group,
+    COUNT(*) AS complaint_count
 FROM complaints
 GROUP BY 
     CASE 
-        WHEN complaint_type IN ('shipping_delay', 'product_damaged') THEN 'Operasyonel Risk'
-        WHEN complaint_type IN ('bad_information', 'wrong_billing') THEN 'Bilgi Güvenliği Riski'
-        ELSE 'Diğer'
+        WHEN complaint_type IN ('shipping_delay', 'product_damaged') THEN 'Operational Risk'
+        WHEN complaint_type IN ('bad_information', 'wrong_billing') THEN 'Information Security Risk'
+        ELSE 'Other'
     END;
 
 
@@ -64,11 +64,11 @@ GROUP BY
 -- Soru 5: Haftalık bazda üretilen politika dışı yanıt sayısı ile müşteri şikâyetlerinin zamansal trendi nasıl değişmektedir?
 -- Bu sorgu, haftalık hatalı yanıt artışlarının doğrudan müşteri şikâyetlerine yansıyıp yansımadığını korelasyon olarak inceler.
 SELECT 
-    date_trunc('week', r.generated_at) AS hafta,
-    COUNT(DISTINCT r.id) AS toplam_yanit,
-    COUNT(DISTINCT CASE WHEN r.is_off_policy = TRUE THEN r.id END) AS politika_disi_yanitlar,
-    COUNT(DISTINCT c.id) AS toplam_sikayet
+    date_trunc('week', r.generated_at) AS week,
+    COUNT(DISTINCT r.id) AS total_responses,
+    COUNT(DISTINCT CASE WHEN r.is_off_policy = TRUE THEN r.id END) AS off_policy_responses,
+    COUNT(DISTINCT c.id) AS total_complaints
 FROM responses r
 LEFT JOIN complaints c ON r.id = c.response_id
 GROUP BY date_trunc('week', r.generated_at)
-ORDER BY hafta ASC;
+ORDER BY week ASC;
