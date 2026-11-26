@@ -1,3 +1,8 @@
+## Veri Modeli
+
+### 2.1 Güncel ERD
+
+```mermaid
 erDiagram
     QUESTIONS ||--|| RESPONSES : "üretir"
     RESPONSES ||--o| COMPLAINTS : "yol_acar"
@@ -21,14 +26,28 @@ erDiagram
         int response_id FK
         varchar complaint_type
     }
+```
 
-    İlişki Açıklamaları:
+* **İlişki Açıklamaları:**
+  * Bir `question`, tam bir `response`'a sahiptir; bir `response`, tam bir `question`'a aittir.
+  * Bir `response`, sıfır veya bir `complaint`'e sahiptir; bir `complaint`, tam bir `response`'a aittir.
 
-->Bir question, tam bir response'a sahiptir; bir response, tam bir question'a aittir.
+### 2.2 Normalizasyon Notu
 
-->Bir response, sıfır veya bir complaint'e sahiptir; bir complaint, tam bir response'a aittir.
+| Tablo Adı | Neden Ayrıldı / Ayrılmadı? (Fonksiyonel Bağımlılık) | Form | Somut Örnek |
+| :--- | :--- | :--- | :--- |
+| `questions` | Soruya ait konu (`topic`) ve zaman (`asked_at`) bilgileri yalnızca soru kimliğine (`id`) bağlıdır; yanıt detaylarıyla tekrar etmemesi için ayrı tutulmuştur. | **1NF** | Tüm sütunlar atomik değerler içerir; örneğin `topic` alanında çoklu etiketler yerine tekil değerler (`payment`, `return`) yer alır. |
+| `responses` | `source_found`, `is_off_policy` ve `generated_at` alanları doğrudan yanıt kimliğine (`id`) bağlıdır; soru detayları `question_id` (FK) ile ilişkilendirilmiştir. | **2NF** | Kısmi bağımlılık yoktur; tablonun birincil anahtarı tekil bir sütundur (`id`). |
+| `complaints` | Şikâyetler her yanıtta oluşmadığı (600 yanıtta 135 şikâyet) ve `complaint_type` bilgisi yalnızca şikâyetin kendi `id`'sine bağlı olduğu için ayrı bir tabloda modellenmiştir. | **3NF** | Geçişli bağımlılıklar arındırılmıştır; örneğin `questions.topic` bilgisi `complaints` tablosuna taşınmayarak veri tekrarı önlenmiştir. |
 
-Tablo Adı	Neden Ayrıldı / Ayrılmadı? (Fonksiyonel Bağımlılık)	Hangi Normal Form?	Somut Örnek (Proje 40 Verilerinden)
-questions	Sorunun içeriği (topic) ve sorulma zamanı (asked_at) doğrudan soru kimliğine (id) bağlıdır. Yanıt detaylarıyla (örn. is_off_policy) aynı tabloda tutulursa her yanıt üretildiğinde soru bilgileri tekrar edeceği için ayrı bir tabloda modellenmiştir.	1NF (Birinci Normal Form)	Tüm sütunlar atomik (bölünemez) değerler içerir; örneğin topic alanında virgülle ayrılmış çoklu kategoriler yerine tekil bir değer (payment veya return) tutulur.
-responses	Bir soruya karşılık gelen yanıtın durumu (source_found, is_off_policy, generated_at) yalnızca yanıtın kendi id'sine bağlıdır. Soru metni/konusu tekrarlanmaz, yalnızca question_id (FK) ile bağlanır.	2NF (İkinci Normal Form)	Kısmi bağımlılık (partial dependency) yoktur; tablonun birincil anahtarı tekil bir sütundur (id) ve tüm sütunlar bu anahtara tam olarak bağımlıdır.
-complaints	Şikâyetler her yanıtta oluşmaz (örneğin 600 yanıttan yalnızca 135 tanesi şikâyet almıştır). Eğer şikâyet bilgileri responses tablosunda tutulsaydı, şikâyet almayan satırlarda gereksiz boş (NULL) alanlar oluşacaktı. Bu nedenle ayrı bir tabloda tutulmuştur.	3NF (Üçüncü Normal Form)	Geçişli bağımlılıklar (transitive dependency) arındırılmıştır; complaints tablosundaki complaint_type bilgisi doğrudan şikâyet id'sine bağlıdır, başka bir tablo üzerinden dolaylı olarak bağımlı değildir.
+### 2.3 İki JOIN Sorusu
+
+1. **Soru 1 (`INNER JOIN`):**
+   * **Türkçe Soru:** Politika dışı (`is_off_policy = true`) yanıt üretilen soruların konularını (`topic`) ve bu yanıtlara gelen müşteri şikâyet türlerini (`complaint_type`) listele.
+   * **Birleşme Koşulu:** `questions.id = responses.question_id` ve `responses.id = complaints.response_id`
+   * **JOIN Türü ve Nedeni:** `INNER JOIN` kullanılır; çünkü hem politika dışı yanıt verilen hem de müşteri şikâyetine dönüşen (üç tabloda da ortak olan) kayıtlar analiz edilmektedir.
+
+2. **Soru 2 (Eşleşmeyen Kayıtlar - `LEFT JOIN`):**
+   * **Türkçe Soru:** Politika dışı (`is_off_policy = true`) olduğu halde müşteriden hiçbir şikâyet almamış olan yanıtların ID'lerini ve üretilme zamanlarını bul.
+   * **Birleşme Koşulu:** `responses.id = complaints.response_id` (Filtre: `WHERE complaints.id IS NULL AND responses.is_off_policy = true`)
+   * **JOIN Türü ve Nedeni:** `LEFT JOIN` kullanılır; çünkü sol tablodaki (`responses`) tüm politika dışı yanıtları koruyup, sağ tabloda (`complaints`) eşleşen kaydı bulunmayanları (`IS NULL`) tespit etmek amaçlanır.
