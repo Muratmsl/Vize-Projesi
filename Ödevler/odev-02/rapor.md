@@ -17,6 +17,6 @@ Bu ödevin geliştirilme sürecinde sorgu tasarımı, ERD kurgusu, normalizasyon
 
 ---
 
-## 3. Bölüm 2 Kararı: Proje 40 Veri Modeli Tasarımında En Zor Karar
-* **Kararın Alındığı Nokta:** Proje 40'ın `responses` (Yanıtlar) ve `complaints` (Şikâyetler) tabloları arasındaki ilişkinin modellenmesi aşamasında karar verilmesi gereken en zor nokta, şikâyet verilerinin doğrudan `responses` tablosuna mı sütun olarak ekleneceği, yoksa tamamen ayrı bir `complaints` tablosunda mı tutulacağı konusu olmuştur.
+## 3. Bölüm 2 Kararı: Proje 4 Veri Modeli Tasarımında En Zor Karar
+* **Kararın Alındığı Nokta:** Proje 4'ın `responses` (Yanıtlar) ve `complaints` (Şikâyetler) tabloları arasındaki ilişkinin modellenmesi aşamasında karar verilmesi gereken en zor nokta, şikâyet verilerinin doğrudan `responses` tablosuna mı sütun olarak ekleneceği, yoksa tamamen ayrı bir `complaints` tablosunda mı tutulacağı konusu olmuştur.
 * **İkilem ve Gerekçe:** Tüm veriyi tek tabloda toplamak başlangıçta sorguları yazmayı kolaylaştıracak gibi görünse de, projedeki 600 yanıttan yalnızca 135 tanesinin şikâyet aldığı gerçeği göz önünde bulundurulduğunda, tek tablo yapısı veritabanında çok fazla boş (`NULL`) alan oluşmasına ve veri tekrarına (anomaliye) yol açacaktı. Bu nedenle, 3. Normal Form (3NF) ilkelerine sadık kalınarak `complaints` tablosunun ayrı bir varlık olarak tasarlanması ve `response_id` (FK) ile bağlanması seçilmiştir. Bu karar, veritabanı boyutunu optimize etmiş ve şikâyet analizlerinde (`LEFT JOIN` ile) esneklik kazandırmıştır.
